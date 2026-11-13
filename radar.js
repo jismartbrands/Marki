@@ -60,7 +60,7 @@
   }
   function guardarCfg(c) { try { localStorage.setItem(CLAVE_CFG, JSON.stringify(c)); } catch (e) {} }
   function borrador() { try { var b = JSON.parse(localStorage.getItem(CLAVE_BORRADOR) || 'null'); return b && b.nombre ? b : null; } catch (e) { return null; } }
-  function guardarBorrador(ev) { try { if (ev) localStorage.setItem(CLAVE_BORRADOR, JSON.stringify(ev)); else localStorage.removeItem(CLAVE_BORRADOR); } catch (e) {} }
+  function guardarBorrador(ev) { if (ev && ev.demo) return; try { if (ev) localStorage.setItem(CLAVE_BORRADOR, JSON.stringify(ev)); else localStorage.removeItem(CLAVE_BORRADOR); } catch (e) {} }
   /* v9.8 · Foto del lugar. Se guarda aparte, en IndexedDB del navegador (localStorage solo admite unos 5 MB).
      La evaluación solo lleva ev.foto (fecha de la foto). Mientras se evalúa, la foto nueva viaja en E._fotoNueva
      y se guarda de verdad al terminar; así, cancelar una corrección no cambia la foto guardada. */
@@ -540,6 +540,7 @@
       '<h1>¿Tu negocio aparece cuando un cliente lo busca?</h1>' +
       '<p class="lead">Revisamos lo que un cliente ve de tu negocio en Google, en las redes sociales y en la inteligencia artificial, y te entregamos tu nivel, tus fortalezas, un plan de mejora para los próximos 30 días y un kit listo para usar.</p>' +
       '<div class="fila"><button class="btn pri grande" data-ir="nueva">Evaluar una marca</button><button class="btn sec grande" id="demo">▶ Ver una demostración</button></div>' +
+      '<p class="demo-mas">La demostración hace sola una evaluación completa de un negocio ficticio. También puedes <button type="button" class="btn-enlace" id="demoR">ver solo el resultado</button> o dejar una <button type="button" class="btn-enlace" id="demoB">demostración continua</button> en una pantalla del stand.</p>' +
       '<div class="stats">' + (ref || feria.length ? (ref ? '<div><b>' + ref.n + '</b><small>negocios en el estudio</small></div><div><b>' + f0(ref.indice) + '</b><small>índice promedio de Cobija</small></div>' : '<div><b>21</b><small>indicadores revisados</small></div>') + '<div><b>' + feria.length + '</b><small>' + (feria.length === 1 ? 'diagnóstico' : 'diagnósticos') + ' en la Feria</small></div>'
         : '<div><b>21</b><small>indicadores revisados</small></div><div><b>7</b><small>dimensiones de la presencia digital</small></div><div><b>0 Bs</b><small>costo para el negocio</small></div>') + '</div>' +
       '</div><div class="muestra" aria-hidden="true"><div class="top"><div><b>Ejemplo de diagnóstico</b><br><small>Datos ilustrativos</small></div><span class="pill">Nivel Intermedio · 51</span></div>' +
@@ -552,7 +553,7 @@
       '<section class="dims">' + DIMS.map(function (d) { return '<div><span class="dim-ic">' + icono(d.id, 20) + '</span><em>' + d.id + '</em><b>' + esc(d.nombre) + '</b><small>' + esc(d.pregunta) + '</small></div>'; }).join('') + '</section>' +
       '<section class="accesos"><button data-ir="preparar" class="destacado"><b>Preparar la Feria</b><small>Revisión antes de abrir el stand</small></button><button data-ir="expertos"><b>Investigación</b><small>Expertos (V de Aiken), opinión de los dueños y confiabilidad</small></button><button data-ir="formulario"><b>Rúbrica imprimible</b><small>Formulario para expertos y capacitación</small></button><button data-ir="stand"><b>Pantalla del stand</b><small>Resultados en vivo para el televisor</small></button><button data-ir="config"><b>Configuración</b><small>Copia en Google Sheets y búsqueda en Google Maps</small></button></section>' +
       '<p class="nota" style="margin-top:28px">Universidad Amazónica de Pando · Carrera de Ingeniería Comercial · Marketing Digital (ICOM261). Rúbrica versión ' + esc(R.version) + '. ' + (cfg().hojaUrl ? 'Los datos se guardan en este equipo y se copian en la hoja de Google conectada.' : 'Los datos se guardan solo en este equipo.') + '</p></main>';
-    enlazar(); enlazarRespaldo(); enlazarPrueba(); $('#demo').onclick = crearDemo;
+    enlazar(); enlazarRespaldo(); enlazarPrueba(); $('#demo').onclick = function () { demoGuiada(false); }; if ($('#demoR')) $('#demoR').onclick = crearDemo; if ($('#demoB')) $('#demoB').onclick = function () { demoGuiada(true); };
   }
 
   /* ================================================================ paso 1: datos */
@@ -974,6 +975,9 @@
     mejorarNumeros(); ITEMS.forEach(function (it) { pintarMedidor(it.id, E.resp[it.id]); }); pintarMedidor.listo = true; listasPrev = null;
     actualizar(); enfocar(0); mostrar('entrada', true); window.scrollTo(0, 0);
     $('#fin').onclick = function () {
+      /* demostración guiada: el resultado va aparte (como el ejemplo ficticio), nunca a las evaluaciones reales ni a la hoja */
+      if (E.demo) { var dv = E; E = null; document.onkeydown = null; delete dv.demo; delete dv._fotoNueva; dv.origen = 'Demo'; dv.consentimiento = null; dv.fecha = new Date().toISOString();
+        if (dv._datos) { dv.datos = dv._datos; delete dv._datos; } try { localStorage.setItem(DEMO, JSON.stringify([dv])); } catch (e) {} vRevelar(dv.id); return; }
       var db = leer(), id = E.id, edit = !!E.editando; delete E.editando;
       if (E._fotoNueva !== undefined) { if (E._fotoNueva) E.foto = new Date().toISOString(); else delete E.foto; fotoGuardar(id, E._fotoNueva || null); delete E._fotoNueva; }
       if (E.inicio && !edit) E.minutos = Math.max(1, Math.round((Date.now() - new Date(E.inicio).getTime()) / 60000));
@@ -1448,6 +1452,103 @@
     ITEMS.forEach(function (it, i) { ev.resp[it.id] = x.v[i]; if (it.auto) ev.auto[it.id] = true; });
     try { localStorage.setItem(DEMO, JSON.stringify([ev])); } catch (e) {}
     vRevelar(ev.id);
+  }
+
+  /* ================================================================ v9.9 · demostración guiada
+     Marki hace solo una evaluación completa de un negocio ficticio, paso a paso y con un «dedo» que muestra dónde toca:
+     datos del negocio → 21 indicadores → revelación del resultado → diagnóstico completo. Nada se guarda en las
+     evaluaciones reales ni sube a la hoja (la evaluación lleva la marca demo y termina como «Ejemplo ficticio»).
+     En modo continuo se repite sin parar con otro negocio, para una pantalla del stand. Tocar la pantalla o Esc la detiene. */
+  var DA = null;
+  function demoParar() {
+    if (!DA) return; var d = DA; DA = null; d.stop = true;
+    document.removeEventListener('pointerdown', d.fuera, true); document.removeEventListener('keydown', d.tecla, true);
+    document.querySelectorAll('.demo-guia,.demo-dedo').forEach(function (x) { x.remove(); }); document.body.classList.remove('en-demo');
+    if (d.lock) { try { d.lock.release(); } catch (e) {} }
+  }
+  function demoEspera(d, ms) { return new Promise(function (ok, mal) { setTimeout(function () { if (d.stop) mal('parar'); else ok(); }, ms); }); }
+  function demoGuia(d, paso, txt, fin) {
+    var g = document.querySelector('.demo-guia'); if (!g) return;
+    g.querySelector('.dg-paso').textContent = paso; g.querySelector('.dg-txt').textContent = txt;
+    g.querySelector('.dg-barra i').style.width = Math.round((fin || 0) * 100) + '%';
+  }
+  function demoVisible(el) { var r = el.getBoundingClientRect(); return r.top > 80 && r.bottom < innerHeight - 140; }
+  function demoTocar(d, el, sinClic, ocultar) {
+    if (typeof el === 'string') el = $(el); if (!el) return Promise.resolve();
+    var dedo = document.querySelector('.demo-dedo');
+    return (demoVisible(el) ? Promise.resolve() : (el.scrollIntoView({ block: 'center', behavior: 'smooth' }), demoEspera(d, 650))).then(function () {
+      var r = el.getBoundingClientRect(); if (dedo) { dedo.style.left = (r.left + Math.min(r.width / 2, 60)) + 'px'; dedo.style.top = (r.top + r.height / 2) + 'px'; dedo.classList.add('ver'); }
+      return demoEspera(d, d.rapido ? 380 : 620);
+    }).then(function () { if (dedo) { dedo.classList.remove('toque'); void dedo.offsetWidth; dedo.classList.add('toque'); } if (!sinClic) { if (el.focus) el.focus({ preventScroll: true }); el.click(); } if (ocultar && dedo) dedo.classList.remove('ver'); return demoEspera(d, 260); });
+  }
+  function demoEscribir(d, el, txt) {
+    el = typeof el === 'string' ? $(el) : el; var i = 0;
+    return new Promise(function (ok, mal) { (function letra() { if (d.stop) return mal('parar'); if (i >= txt.length) return ok(); el.value += txt.charAt(i++); el.dispatchEvent(new Event('input', { bubbles: true })); setTimeout(letra, 70 + Math.random() * 60); })(); });
+  }
+  function demoBajar(d, ms) {
+    var t0 = performance.now(), y0 = window.scrollY, fin = Math.max(0, document.documentElement.scrollHeight - innerHeight);
+    return new Promise(function (ok, mal) { (function paso(t) { if (d.stop) return mal('parar'); var k = Math.min(1, (t - t0) / ms); window.scrollTo(0, y0 + (fin - y0) * k); if (k < 1) requestAnimationFrame(paso); else ok(); })(t0); });
+  }
+  function demoGuiada(bucle, k0) {
+    demoParar(); ir('inicio', null, true);
+    var d = DA = { stop: false, bucle: !!bucle, k: k0 || 0 };
+    try { history.replaceState(null, '', bucle ? '#demo-bucle' : '#demo'); } catch (e) {}
+    document.body.classList.add('en-demo');
+    var g = document.createElement('div'); g.className = 'demo-guia'; g.setAttribute('role', 'status'); g.setAttribute('aria-live', 'polite');
+    g.innerHTML = '<span class="dg-logo">' + LOGO_ICONO + '</span><div class="dg-c"><small><b>Demostración' + (bucle ? ' continua' : '') + '</b> · negocio ficticio · <span class="dg-paso"></span></small><p class="dg-txt"></p><span class="dg-barra"><i></i></span></div><button class="dg-salir" type="button">Salir</button>';
+    document.body.appendChild(g); var dedo = document.createElement('div'); dedo.className = 'demo-dedo'; dedo.setAttribute('aria-hidden', 'true'); document.body.appendChild(dedo);
+    g.querySelector('.dg-salir').onclick = function () { demoParar(); ir('inicio'); };
+    /* una persona que toca la pantalla o una tecla toma el control: la demostración se detiene donde está */
+    d.fuera = function (e) { if (e.isTrusted && !e.target.closest('.demo-guia')) demoParar(); };
+    d.tecla = function (e) { if (e.isTrusted) demoParar(); };
+    setTimeout(function () { if (DA === d) { document.addEventListener('pointerdown', d.fuera, true); document.addEventListener('keydown', d.tecla, true); } }, 400);
+    if (bucle && navigator.wakeLock) navigator.wakeLock.request('screen').then(function (l) { d.lock = l; }).catch(function () {});
+    (function vuelta() { demoUna(d).then(function () { if (d.bucle && !d.stop) { window.scrollTo(0, 0); vuelta(); } }).catch(function (e) { if (e !== 'parar' && window.console) console.warn('demostración', e); }); })();
+  }
+  function demoUna(d) {
+    var x = PERFILES_DEMO[d.k++ % PERFILES_DEMO.length], ev = nuevaEval();
+    ev.id = 'demo-' + uid(); ev.demo = true; ev._datos = JSON.parse(JSON.stringify(x.datos));
+    vDatos(ev); window.scrollTo(0, 0);
+    demoGuia(d, 'Paso 1 de 4', 'El estudiante escribe el nombre del negocio, su rubro y su red social principal.', 0.03);
+    return demoEspera(d, 1400)
+      .then(function () { return demoTocar(d, '#nom'); }).then(function () { return demoEscribir(d, '#nom', x.n); })
+      .then(function () { return demoTocar(d, $$('#rub .chip').filter(function (b) { return b.dataset.o === x.r; })[0]); })
+      .then(function () { return demoTocar(d, $$('#red .chip').filter(function (b) { return b.textContent === 'Facebook'; })[0]); })
+      .then(function () { return demoTocar(d, '#seg'); }).then(function () { return demoEscribir(d, '#seg', String(x.seg)); })
+      .then(function () { demoGuia(d, 'Paso 1 de 4', 'Le pregunta al dueño: «Del 0 al 100, ¿qué puntaje crees que tiene tu negocio en internet?»', 0.08); return demoTocar(d, '#est', true); })
+      .then(function () { var est = $('#est'), v = 50, paso = x.est > 50 ? 5 : -5;
+        return new Promise(function (ok, mal) { (function mover() { if (d.stop) return mal('parar'); if (v === x.est) return ok(); v += paso; est.value = v; est.oninput(); setTimeout(mover, 90); })(); }); })
+      .then(function () { demoGuia(d, 'Paso 1 de 4', 'El dueño autoriza el diagnóstico. Los datos se usan de forma anónima.', 0.1); return demoTocar(d, '#cons'); })
+      .then(function () { return demoEspera(d, 500); }).then(function () { return demoTocar(d, '#sig', false, true); })
+      .then(function () {
+        var cadena = demoEspera(d, 900);
+        DIMS.forEach(function (dm, k) {
+          cadena = cadena.then(function () { demoGuia(d, 'Paso 2 de 4 · Dimensión ' + (k + 1) + ' de 7', dm.nombre + ': ' + dm.pregunta, 0.12 + 0.62 * k / DIMS.length); return demoTocar(d, '#pest [data-tab="' + dm.id + '"]'); })
+            .then(function () { return demoEspera(d, 700); });
+          dm.items.forEach(function (it) {
+            cadena = cadena.then(function () { var v = x.v[ITEMS.indexOf(it)], el = $('[data-item="' + it.id + '"]'); if (el && !demoVisible(el)) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+              return demoEspera(d, d.rapido ? 300 : 650).then(function () { return demoTocar(d, '.ops[data-it="' + it.id + '"] .op[data-v="' + v + '"]'); }); })
+              .then(function () { return demoEspera(d, 380); });
+          });
+        });
+        return cadena;
+      })
+      .then(function () { demoGuia(d, 'Paso 3 de 4', 'Con los 21 indicadores listos, Marki calcula el resultado al instante.', 0.76); return demoEspera(d, 900); })
+      .then(function () { return demoTocar(d, '#fin', false, true); })
+      .then(function () { demoGuia(d, 'Paso 3 de 4', 'El dueño ve su nivel en las 7 dimensiones…', 0.8); return demoEspera(d, 4600); })
+      .then(function () { demoGuia(d, 'Paso 3 de 4', '…y compara lo que creía tener con su presencia digital real.', 0.84); return demoEspera(d, 5200); })
+      .then(function () { demoGuia(d, 'Paso 4 de 4', 'Diagnóstico completo: fortalezas, plan de mejora de 30 días, simulador y PDF para el dueño.', 0.88); return demoTocar(d, '#rver', false, true); })
+      .then(function () { return demoEspera(d, 1600); }).then(function () { return demoBajar(d, 26000); })
+      .then(function () {
+        if (d.bucle) { demoGuia(d, 'Listo', 'En unos segundos empieza otra demostración con otro negocio.', 1); return demoEspera(d, 4000); }
+        demoGuia(d, 'Fin de la demostración', 'Así de rápido se diagnostica un negocio real de Cobija.', 1);
+        var g = document.querySelector('.demo-guia'); if (g) { var a = document.createElement('div'); a.className = 'dg-acc';
+          a.innerHTML = '<button class="btn pri chico" type="button" data-dg="real">Evaluar un negocio real</button><button class="btn sec chico" type="button" data-dg="otra">Ver otra</button>'; g.querySelector('.dg-c').appendChild(a);
+          a.querySelector('[data-dg="real"]').onclick = function () { demoParar(); ir('nueva'); };
+          a.querySelector('[data-dg="otra"]').onclick = function () { demoGuiada(false, d.k); }; }
+        var dd = document.querySelector('.demo-dedo'); if (dd) dd.remove();
+        document.removeEventListener('pointerdown', d.fuera, true); document.removeEventListener('keydown', d.tecla, true);
+      });
   }
 
   /* ================================================================ preparar la Feria: revisión antes de abrir el stand */
@@ -2109,6 +2210,7 @@
   window.RADAR = { puntajes: puntajes, icc21: icc21, kappaW: kappaW, spearman: spearman, friedman: friedman, nivelDe: nivelDe, autoNivel: autoNivel, ITEM: ITEM, pdf: pdfDiagnostico, tabla: tablaAncho }; /* pdf y tabla: solo para las pruebas automáticas */
   function ruta() {
     var h0 = location.hash.slice(1).split('/'), v = h0[0], arg = h0[1];
+    demoParar(); if (v === 'demo' || v === 'demo-bucle') return demoGuiada(v === 'demo-bucle');
     if ((v === 'informe' || v === 'kit') && arg) return ir(v, arg, true);
     ir(['panel', 'nueva', 'expertos', 'experto', 'stand', 'formulario', 'config', 'preparar'].indexOf(v) >= 0 ? v : 'inicio', null, true);
   }
