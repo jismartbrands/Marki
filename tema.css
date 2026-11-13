@@ -692,3 +692,29 @@ td.com div{font-size:12.5px;margin-bottom:3px}
 .aviso.okk{background:#047857}.aviso.err{background:#B42323}
 .sin-hoja{display:flex;gap:16px;align-items:center;justify-content:space-between;border-left:5px solid #B42323;background:#FFF6F6;margin-bottom:18px}
 @media (max-width:640px){.sin-hoja{flex-direction:column;align-items:flex-start}}
+
+/* v9.9 · demostración guiada */
+.demo-mas{margin:12px 0 0;font-size:14px;color:var(--muted2,#5F6A7F);max-width:520px}
+.btn-enlace{background:none;border:0;padding:0;font:inherit;color:#1F3864;font-weight:700;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.btn-enlace:hover{color:#8B0000}.btn-enlace:focus-visible{outline:3px solid #8B0000;outline-offset:2px;border-radius:3px}
+.demo-guia{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:9000;width:min(720px,calc(100vw - 24px));display:flex;gap:14px;align-items:center;background:#0F1B34;color:#fff;border-radius:18px;padding:12px 14px 12px 12px;box-shadow:0 12px 34px rgba(8,15,32,.35);border:1px solid rgba(255,255,255,.12)}
+.demo-guia .dg-logo{flex:none;width:46px;height:46px;border-radius:50%;background:#fff;display:grid;place-items:center;overflow:hidden}
+.demo-guia .dg-logo .logo-icono{width:38px;height:38px}
+.demo-guia .dg-c{flex:1;min-width:0}
+.demo-guia small{display:block;font-size:12.5px;color:#C9D2E3}.demo-guia small b{color:#fff}
+.demo-guia .dg-txt{margin:3px 0 7px;font-size:16px;line-height:1.35;font-weight:600}
+.demo-guia .dg-barra{display:block;height:5px;border-radius:5px;background:rgba(255,255,255,.18);overflow:hidden}
+.demo-guia .dg-barra i{display:block;height:100%;width:0;background:linear-gradient(90deg,#E8A33D,#C0392B);transition:width .6s ease}
+.demo-guia .dg-salir{flex:none;align-self:flex-start;background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:10px;padding:7px 12px;font:inherit;font-size:14px;font-weight:700;cursor:pointer}
+.demo-guia .dg-salir:hover{background:rgba(255,255,255,.22)}.demo-guia .dg-salir:focus-visible{outline:3px solid #fff;outline-offset:2px}
+.demo-guia .dg-acc{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.demo-guia .dg-acc .btn.sec{background:#fff}
+.demo-dedo{position:fixed;left:-60px;top:-60px;z-index:9001;width:38px;height:38px;margin:-19px 0 0 -19px;border-radius:50%;border:3px solid #8B0000;background:rgba(139,0,0,.16);box-shadow:0 0 0 4px rgba(255,255,255,.75);pointer-events:none;opacity:0;transition:left .55s cubic-bezier(.3,.7,.2,1),top .55s cubic-bezier(.3,.7,.2,1),opacity .3s}
+.demo-dedo.ver{opacity:1}
+.demo-dedo.toque{animation:dg-toque .45s ease-out}
+@keyframes dg-toque{0%{transform:scale(1)}40%{transform:scale(.72);background:rgba(139,0,0,.45)}100%{transform:scale(1)}}
+body.en-demo main{padding-bottom:130px}
+@media (max-width:640px){.demo-guia{bottom:8px;gap:10px;padding:10px}.demo-guia .dg-logo{width:36px;height:36px}.demo-guia .dg-logo .logo-icono{width:30px;height:30px}.demo-guia .dg-txt{font-size:14.5px}}
+@media (prefers-reduced-motion:reduce){.demo-dedo{transition:none}.demo-dedo.toque{animation:none}}
+@media print{.demo-guia,.demo-dedo{display:none!important}}
+.demo-guia .dg-acc .btn.pri{background:#F4B63A;border-color:#F4B63A;color:#0F1B34}.demo-guia .dg-acc .btn.pri:hover{background:#FFC857}
