@@ -1889,6 +1889,44 @@
         A.r[it.id][e] = (x.r || baseR)[x.r ? e - 1 : i]; A.c[it.id][e] = (x.c || baseC)[x.c ? e - 1 : i]; } });
     return A;
   }
+  /* v9.9 · importar las respuestas del formulario «Marki · Validación por juicio de expertos» de Google Forms.
+     En la hoja de respuestas: Archivo → Descargar → Valores separados por comas (.csv). Cada fila es un experto.
+     Las opciones terminan en «(1)» a «(4)»; ese número es la calificación. Si el experto ya está (mismo nombre), se actualiza. */
+  function filasCSV(t) {
+    t = t.replace(/^﻿/, ''); var rows = [], r = [], f = '', q = false;
+    for (var i = 0; i < t.length; i++) { var c = t.charAt(i);
+      if (q) { if (c === '"') { if (t.charAt(i + 1) === '"') { f += '"'; i++; } else q = false; } else f += c; }
+      else if (c === '"') q = true; else if (c === ',') { r.push(f); f = ''; } else if (c === '\n') { r.push(f); rows.push(r); r = []; f = ''; } else if (c !== '\r') f += c; }
+    if (f || r.length) { r.push(f); rows.push(r); } return rows;
+  }
+  function importarExpertosForms(texto) {
+    var rows = filasCSV(texto), cab = rows[0] || [];
+    var col = function (pre, txt) { for (var i = 0; i < cab.length; i++) if (cab[i].indexOf(pre + ' · ') === 0 && cab[i].indexOf(txt) >= 0) return i; return -1; };
+    var cNom = cab.indexOf('Nombre y apellido'), cPro = cab.findIndex(function (h) { return /^Profesi/.test(h); });
+    if (cNom < 0 || col(ITEMS[0].id, 'debe estar') < 0) throw new Error('El archivo no parece ser la hoja de respuestas del formulario de expertos de Marki. Descárgala como .csv desde Google Sheets.');
+    var num = function (v) { var m = String(v || '').match(/\(([1-4])\)/); return m ? +m[1] : undefined; };
+    var db = leer(), A = datosAiken(db), res = { nuevos: 0, actualizados: 0 }; A.ids = A.ids || {};
+    var usado = function (e) { return !!A.nombres[e] || ITEMS.some(function (it) { return (A.r[it.id] || {})[e] || (A.c[it.id] || {})[e]; }); };
+    var norm = function (x) { return String(x || '').toLowerCase().replace(/\s+/g, ' ').trim(); };
+    rows.slice(1).forEach(function (r) {
+      var nombre = String(r[cNom] || '').trim(), prof = cPro >= 0 ? String(r[cPro] || '').trim() : ''; if (!nombre) return;
+      var completo = nombre + (prof ? ', ' + prof : ''), e = 0;
+      for (var k = 1; k <= A.n && !e; k++) if (A.nombres[k] && (norm(A.nombres[k]) === norm(completo) || norm(A.nombres[k]).indexOf(norm(nombre) + ',') === 0 || norm(A.nombres[k]) === norm(nombre))) e = k;
+      var nuevo = !e;
+      if (!e) { for (var k2 = 1; k2 <= A.n && !e; k2++) if (!usado(k2) && !A.ids[k2]) e = k2; if (!e) { if (A.n >= 10) return; A.n++; e = A.n; } }
+      A.nombres[e] = completo;
+      ITEMS.forEach(function (it) { var a = num(r[col(it.id, 'debe estar')]), b = num(r[col(it.id, 'Se entiende')]);
+        if (a) (A.r[it.id] = A.r[it.id] || {})[e] = a; if (b) (A.c[it.id] = A.c[it.id] || {})[e] = b; });
+      DIMS.forEach(function (d) { var sv = num(r[col(d.id, 'alcanzan')]); if (sv) (A.s[d.id] = A.s[d.id] || {})[e] = sv;
+        var partes = [], g = String(r[col(d.id, 'Qué cambiaría')] || '').trim(); if (g) partes.push(g);
+        d.items.forEach(function (it) { var o = String(r[col(it.id, 'Observación')] || '').trim(); if (o) partes.push(it.id + ': ' + o); });
+        if (partes.length) (A.com[d.id] = A.com[d.id] || {})[e] = partes.join(' | '); });
+      if (nuevo) res.nuevos++; else res.actualizados++;
+      escribir(db); encolarExperto(e); db = leer(); A = datosAiken(db);
+    });
+    escribir(db); if (res.nuevos + res.actualizados) subirPronto();
+    return res;
+  }
   function datosAiken(db) { var X = db.expertos = db.expertos || {}; X.aiken = X.aiken || { n: 5, nombres: {}, r: {}, c: {} }; X.aiken.s = X.aiken.s || {}; X.aiken.com = X.aiken.com || {}; return X.aiken; }
   function filasAiken(A) {
     return ITEMS.map(function (it) {
@@ -1940,11 +1978,15 @@
       DIMS.map(function (d) { var vs = []; for (var e = 1; e <= N; e++) { var x = (A.s[d.id] || {})[e]; if (x) vs.push(x); } var S2 = vs.length === N ? aiken(vs) : null, cm = A.com[d.id] || {};
         return '<tr><td><b>' + d.id + '</b> ' + esc(d.nombre) + '</td><td class="n"><b>' + (S2 ? f2(S2.V) : vs.length + '/' + N) + '</b></td><td>' + (!S2 ? '<span class="pill-n gris">Incompleto</span>' : S2.V >= V_MIN ? '<span class="pill-n n3">Bastan</span>' : '<span class="pill-n n1">Agregar o ajustar</span>') + '</td><td class="com">' +
           Object.keys(cm).map(function (e) { return '<div><b>E' + e + ':</b> ' + esc(cm[e]) + '</div>'; }).join('') + '</td></tr>'; }).join('') + '</table></div>' +
-      '<div class="acciones"><button class="btn sec chico" data-ir="formulario">Imprimir formulario para expertos</button><button class="btn sec chico" id="xe">Descargar CSV</button><button class="btn sec chico" id="xex">Descargar Excel</button><span class="espacio"></span><button class="btn peligro chico" id="limpiar">Borrar calificaciones</button></div>' +
+      '<div class="acciones"><button class="btn sec chico" data-ir="formulario">Imprimir formulario para expertos</button><button class="btn sec chico" id="xe">Descargar CSV</button><button class="btn sec chico" id="xex">Descargar Excel</button><button class="btn sec chico" id="xgf">Importar respuestas de Google Forms</button><input type="file" id="xgfIn" accept=".csv,text/csv" hidden><span class="espacio"></span><button class="btn peligro chico" id="limpiar">Borrar calificaciones</button></div>' +
       '<p class="nota">V = S / [n (c − 1)], donde S es la suma de (calificación − 1) de los n expertos y c = 4 el número de valores de la escala (Aiken, 1985). Intervalo de confianza del 95 % por el método score (Penfield y Giacobbi, 2004). Criterio: el indicador se mantiene si la V de relevancia y la de claridad son ≥ ' + f2(V_MIN) + ' (Charter, 2003, citado en Merino y Livia, 2009). Criterios y escalas basados en Escobar-Pérez y Cuervo-Martínez (2008). La V se calcula cuando los ' + N + ' expertos calificaron el indicador.</p></div></main>';
     app.innerHTML = h; enlazar();
     $('#xex').onclick = descargarExcel;
-    if (verEjemplo) { $$('.exp-esc button,#limpiar,#xe,#xex').forEach(function (b) { b.disabled = true; }); }
+    $('#xgf').onclick = function () { $('#xgfIn').click(); };
+    $('#xgfIn').onchange = function () { var f = this.files && this.files[0]; this.value = ''; if (!f) return;
+      var rd = new FileReader(); rd.onload = function () { try { var n = importarExpertosForms(String(rd.result || '')); aviso(n.nuevos + n.actualizados ? 'Expertos importados: ' + pl(n.nuevos, 'nuevo', 'nuevos') + (n.actualizados ? ' y ' + pl(n.actualizados, 'actualizado', 'actualizados') : '') + '.' : 'No se encontraron respuestas nuevas en el archivo.', 'okk'); vExpertos(); } catch (e) { aviso(e.message, 'err'); } };
+      rd.readAsText(f, 'utf-8'); };
+    if (verEjemplo) { $$('.exp-esc button,#limpiar,#xe,#xex,#xgf').forEach(function (b) { b.disabled = true; }); }
     if ($('#ejOn')) $('#ejOn').onclick = function () { verEjemplo = true; expSel = 1; vExpertos(); };
     if ($('#ejOff')) $('#ejOff').onclick = function () { verEjemplo = false; expSel = 1; vExpertos(); };
     var guardar = function (fn) { if (verEjemplo) return; var d = leer(); fn(datosAiken(d)); escribir(d); encolarExperto(expSel); subirPronto(); };
