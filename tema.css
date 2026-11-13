@@ -718,3 +718,10 @@ body.en-demo main{padding-bottom:130px}
 @media (prefers-reduced-motion:reduce){.demo-dedo{transition:none}.demo-dedo.toque{animation:none}}
 @media print{.demo-guia,.demo-dedo{display:none!important}}
 .demo-guia .dg-acc .btn.pri{background:#F4B63A;border-color:#F4B63A;color:#0F1B34}.demo-guia .dg-acc .btn.pri:hover{background:#FFC857}
+
+/* v9.9.2: el loro solo ocupa 2/3 del circulo para que no se corten las alas */
+.demo-guia .dg-logo .logo-icono{width:31px;height:31px}
+.ch-av .logo-icono{width:30px;height:30px}
+.logo-g{padding:14px}
+.rev-scan b .logo-icono{padding:16px}
+@media (max-width:640px){.demo-guia .dg-logo .logo-icono{width:24px;height:24px}}
